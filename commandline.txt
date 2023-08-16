@@ -1,0 +1,1 @@
+python maps.py -q ./queries.txt -w 2 -l -1 -u "Not Available" -bw 15 -se contacts -se about -o ./CSV_FILES
