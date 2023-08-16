@@ -32,18 +32,18 @@ If you find any bug or not working function you can contact me.
 * Linux Servers (doesn't support `windowed browser`)
 
 ## Simple Usage
-For just simple execution you don't even need any parameters as all the parameters have default values. Just type:
+For just simple execution you don't even need any parameters as all the parameters have default values. Just type (highly recommend to use `-v` tag for verbose. It will only change status tag which keep you up-to-date):
 ```bash
 python3 maps.py
 ```
 After all the parameters here it looks like. I did not add `-d` parameter you need to pass it as in newer version of chrome driver (>=115) are not available direct site so for that you need to pass the driver manually using `-d`. And also the driver which is in `chrome_driver_backup` directory is for latest version (116).
 ```bash
-python maps.py -q ./queries.txt -w 2 -l -1 -u "Not Available" -bw 15 -se contacts -se about -o ./CSV_FILES
+python maps.py -q ./queries.txt -w 2 -l -1 -u "Not Available" -bw 15 -se contacts -se about -o ./CSV_FILES -v
 ```
 
 Command line after adding `-d`
 ```bash
-python3 maps.py -q "./queries.txt" -d "./chrome_driver_backup/chromedriver.exe"
+python3 maps.py -q "./queries.txt" -d "./chrome_driver_backup/chromedriver.exe" -v
 ```
 
 ## What this script Scrapes?
