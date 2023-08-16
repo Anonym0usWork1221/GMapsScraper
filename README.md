@@ -82,6 +82,8 @@ Additionally, it scrapes these attributes (if `-se` tag is used in `CLI`):
 
 2. **_Visualization of few points of data script scrapes_**.  
 <img src = "README_ASSETS/additional_scrape.png"/>
+
+
 -----
 
 ## GMapsScraper Documentation
