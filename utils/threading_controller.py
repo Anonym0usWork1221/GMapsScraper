@@ -63,7 +63,7 @@ class FastSearchAlgo:
                               print_lock=self._print_lock,
                               result_range=self._result_range, verbose=self._verbose,
                               stop_event=self._thread_stop_event,
-                              scroll_minutes=scroll_minutes
+                              scroll_minutes=self._scroll_minutes
                               )
 
         range_calculation = query_list_range / self._workers
