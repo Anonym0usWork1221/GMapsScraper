@@ -2,7 +2,6 @@ from selenium.webdriver.chrome.webdriver import WebDriver
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 from re import compile
-# from requests import head
 
 
 class PatternScrapper:
@@ -15,23 +14,6 @@ class PatternScrapper:
         self._insta_pattern = compile(r'(?:https?://)?(?:www\.)?instagram\.com/\S+')
         self._youtube_pattern = compile(r'(?:https?://)?(?:www\.)?youtube\.com/\S+')
         self._linkedin_pattern = compile(r'(?:https?://)?(?:www\.)?linkedin\.com/\S+')
-
-    """TO DO: Results not correct to some extend"""
-    # @staticmethod
-    # def check_validation(url_list: list):
-    #     valid_urls = []
-    #     for url in url_list:
-    #         request_response = head(url)
-    #         status_code = request_response.status_code
-    #         if status_code == 200:
-    #             valid_urls.append(url)
-    #         elif status_code == 301:
-    #             request_response = head(request_response.headers["Location"])
-    #             status_code = request_response.status_code
-    #             if status_code == 200:
-    #                 valid_urls.append(url)
-    #     # print(valid_urls)
-    #     return valid_urls
 
     @staticmethod
     def create_urls(site_url: str, url_ext: list):
@@ -122,12 +104,12 @@ class PatternScrapper:
             return patterns_data
 
         valid_urls = self.create_urls(site_url, suggested_ext)
-        # self.check_validation(valid_urls)
 
         self._last_opened_handler = driver.current_window_handle
         try:
             sources = self.get_source_code(driver, valid_urls)
-        except Exception:
+        except Exception as e:
+            _ = e
             for key in patterns_data.keys():
                 patterns_data[key] = unavailable
             return patterns_data
