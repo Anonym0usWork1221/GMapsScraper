@@ -5,23 +5,43 @@ GMapsScraper
 **_GMapsScraper_** is a command-line tool which is designed to scrape data from Google Maps search results using multiple threads and efficient search algorithms..
 If you find any bug or not working function you can contact me. 
 
- *  Date   : 2023/08/16
+ *  Launch Date   : 2023/08/16
+ *  Updated Date   : 2024/02/05
  *  Author : **__Abdul Moez__**
- *  Version : 0.1
- *  Study  : UnderGraduate in GCU Lahore, Pakistan
+ *  Version : 0.2b
  *  Repository  : https://github.com/Anonym0usWork1221/GMapsScraper
  *  [Documentation](https://github.com/Anonym0usWork1221/GMapsScraper#gmapsscraper-documentation)
 
 
- GNU General Public License 
+MIT License
 
- Copyright (c) 2023 AbdulMoez
+Copyright (c) 2025 Abdul Moez
+
+----------
+# Version 0.2b
+
+````
+-----------------------------------------CHANGE LOGS--------------------------------------------------
+
+1. Removed manual driver path (the driver will now be downloaded automatically).
+2. Added advanced security patches to make the driver more undetectable.
+3. Cleaned the code for better readability.
+4. Fixed link detection in the query file.
+5. Removed the dictionary cleaner code.
+6. Set verbose mode to `True` by default; use `-nv` to disable it.
+7. Added support for multiple output formats. You can set the output format using
+ `-of CSV`. Available formats: [CSV, EXCEL, JSON].
+8. Added a maximum scroll wait time for reaching the end of Google Maps results. 
+ You can set the scroll wait time using `-sm`. Example: for 6 minutes, use `-sm 6`.
+9. Changed the license from GNU to MIT.
+````
+
 
 -----------
 
 ## Requirements
-* Python 3.7+
-* Google Chrome Stable (also work on chromium on linux headless server)
+* Python version must be greater than 3.7 and less than 3.11
+* Google Chrome Stable
 * Requirements file (as mentioned in installation section in documentation)
 
 
@@ -36,15 +56,11 @@ For just simple execution you don't even need any parameters as all the paramete
 ```bash
 python3 maps.py
 ```
-After all the parameters here it looks like. I did not add `-d` parameter you need to pass it as in newer version of chrome driver (>=115) are not available direct site so for that you need to pass the driver manually using `-d`. And also the driver which is in `chrome_driver_backup` directory is for latest version (116).
+After all the parameters here it looks like.
 ```bash
-python maps.py -q ./queries.txt -w 2 -l -1 -u "Not Available" -bw 15 -se contacts -se about -o ./CSV_FILES -v
+python maps.py -q ./queries.txt -w 2 -l -1 -u "Not Available" -bw 15 -se contacts -se about -o ./CSV_FILES -of "CSV" -wb -sm 6
 ```
 
-Command line after adding `-d`
-```bash
-python3 maps.py -q "./queries.txt" -d "./chrome_driver_backup/chromedriver.exe" -v
-```
 
 ## What this script Scrapes?
 1. `Latitude` (lat): The latitude coordinate of a specific place, usually represented as a decimal number. It indicates the north-south position on the Earth's surface.
@@ -129,9 +145,11 @@ The `GMapsScraper` script supports the following command-line arguments:
 * `-bw` or `--browser-wait`: Browser waiting time in seconds. Default: `15`
 * `-se` or `--suggested-ext`: Suggested URL extensions to try. Can be specified multiple times.
 * `-wb` or `--windowed-browser`: Disable headless mode (display browser window). Default: Headless mode
-* `-v` or `--verbose`: Enable verbose mode (additional console output).
+* `-nv` or `--disable-verbose`: Disable verbose mode (disable additional console output).
 * `-o` or `--output-folder`: Output folder to store CSV details. Default: `./CSV_FILES`
-* `-d` or `--driver-path`: Path to Chrome driver. If not provided, it will be downloaded.
+* `-of` or `--output-format`: Output format to store scraped data. Available formats [CSV, EXCEL, JSON] default: `CSV`.
+* `-sm` or `--scroll-minutes`: Maximum minutes to wait for end of results the waiting time in minutes.
+  (Will terminate the scrolling event if scrolling checker is not working) Default: `1`.
 
 ### Help for Specific Options <a name="help-for-specific-options"></a>
 You can use the following command-line options to get help for specific topics:
