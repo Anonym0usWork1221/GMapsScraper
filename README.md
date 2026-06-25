@@ -21,12 +21,33 @@ Find websites, emails, and business contacts from Google Maps — in minutes, no
 
 <hr/>
 
-GMapsScraper
-====
------------
+# GMapsScraper — Google Maps Scraper in Python 🗺️
 
-**_GMapsScraper_** is a command-line tool which is designed to scrape data from Google Maps search results using multiple threads and efficient search algorithms..
-If you find any bug or not working function you can contact me. 
+<p align="center">
+  <a href="https://github.com/Anonym0usWork1221/GMapsScraper/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/Anonym0usWork1221/GMapsScraper?style=flat-square&color=2563EB"></a>
+  <a href="https://github.com/Anonym0usWork1221/GMapsScraper/network/members"><img alt="GitHub forks" src="https://img.shields.io/github/forks/Anonym0usWork1221/GMapsScraper?style=flat-square"></a>
+  <a href="https://github.com/Anonym0usWork1221/GMapsScraper/issues"><img alt="GitHub issues" src="https://img.shields.io/github/issues/Anonym0usWork1221/GMapsScraper?style=flat-square"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/github/license/Anonym0usWork1221/GMapsScraper?style=flat-square"></a>
+  <img alt="Python 3.7+" src="https://img.shields.io/badge/python-3.7%2B-blue?style=flat-square&logo=python&logoColor=white">
+  <img alt="Last commit" src="https://img.shields.io/github/last-commit/Anonym0usWork1221/GMapsScraper?style=flat-square">
+  <img alt="Platforms" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=flat-square">
+</p>
+
+**GMapsScraper** is a fast, multi-threaded **Google Maps scraper** written in **Python** — with **no API key required**. It extracts **business leads** from Google Maps search results: **name, category, rating, reviews, price level, address, opening hours, phone number, website, menu link, photos, and GPS coordinates (latitude/longitude)** — and can crawl each business's website for **emails and social media links** (Facebook, Instagram, X/Twitter, YouTube, LinkedIn). Export everything to **CSV, Excel (XLSX), or JSON**.
+
+> Also useful as a: google maps data extractor · google maps lead generation tool · google maps email & phone number scraper · google maps business scraper · Selenium / undetected-chromedriver scraping example.
+
+## ✨ Features
+
+- 🔑 **No API key, no billing** — drives a real browser via `undetected-chromedriver` for stealthy, anti-bot scraping.
+- ⚡ **Multi-threaded** — scrape many queries in parallel (`-w`).
+- 🧾 **15+ fields per place** — title, rating, reviews, price, category, address, hours, phone, website, menu, photos, latitude/longitude, about.
+- 📧 **Contact & social enrichment** — optionally crawl each business website for emails + Facebook/Instagram/Twitter/YouTube/LinkedIn (`-se`).
+- 💾 **Export to CSV, Excel, or JSON** (`-of`).
+- 🖥️ **Headless or windowed**, runs on **Windows, macOS, and Linux** (including headless servers).
+- 🎯 **Configurable** result limit, scroll time, and wait times.
+
+If you find any bug or a function that stopped working, feel free to open an issue or contact me.
 
  *  Launch Date   : 2023/08/16
  *  Updated Date   : 2024/02/05
