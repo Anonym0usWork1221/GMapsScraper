@@ -14,6 +14,23 @@ class PatternScrapper:
         self._insta_pattern = compile(r'(?:https?://)?(?:www\.)?instagram\.com/\S+')
         self._youtube_pattern = compile(r'(?:https?://)?(?:www\.)?youtube\.com/\S+')
         self._linkedin_pattern = compile(r'(?:https?://)?(?:www\.)?linkedin\.com/\S+')
+        # Resolve the parser once; fall back to the stdlib parser when lxml is
+        # absent so website parsing never hard-crashes mid-run.
+        self._html_parser = self._resolve_parser()
+
+    @staticmethod
+    def _resolve_parser() -> str:
+        """
+        Return the best available BeautifulSoup parser: 'lxml' when installed
+        (fast and lenient), otherwise the standard-library 'html.parser'.
+        """
+        for parser in ("lxml", "html.parser"):
+            try:
+                BeautifulSoup("", parser)
+                return parser
+            except Exception:
+                continue
+        return "html.parser"
 
     @staticmethod
     def create_urls(site_url: str, url_ext: list):
@@ -73,7 +90,7 @@ class PatternScrapper:
                          "youtube_links": [], "linkedin_links": []}
 
         for source in source_codes:
-            soup = BeautifulSoup(source, features="lxml", parser="html.parser")
+            soup = BeautifulSoup(source, self._html_parser)
 
             site_email = [x for x in str(soup) if self._email_pattern.search(x).group()]
             if not site_email:

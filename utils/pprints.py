@@ -35,7 +35,7 @@ class PPrints:
 
     def print_with_lock(self, query: str, status: str, mode: str,
                         results_indices: any([str, list[int]]) = "Calculating", output_format: str = "CSV"):
-        version = 0.1
+        version = "0.3b"
         with self._print_lock:
             memory_info = self._process.memory_info()
             current_memory_usage = memory_info.rss / 1024 / 1024  # Convert bytes to megabytes

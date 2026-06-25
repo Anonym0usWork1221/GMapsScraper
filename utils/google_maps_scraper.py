@@ -10,10 +10,12 @@ from selenium.webdriver.common.by import By
 import undetected_chromedriver as uc
 from utils.pprints import PPrints
 from threading import Lock, Event
+from subprocess import check_output, DEVNULL
+from platform import system as platform_system
 from time import time, sleep
-from os.path import exists
 from random import uniform
-from os import mkdir
+from os import makedirs
+import re
 
 
 class GoogleMaps:
@@ -93,7 +95,9 @@ class GoogleMaps:
             Start the scraping process for a given query.
     """
 
-    _maps_url = "https://www.google.com/maps"
+    # hl=en forces the English UI so the aria-label/text-based selectors used below
+    # (hours, about, cover photo, price) resolve regardless of the visitor's region.
+    _maps_url = "https://www.google.com/maps?hl=en"
     _finger_print_defender_ext = "./extensions/finger_print_defender.crx"
 
     def __init__(self, unavailable_text: str = "Not Available", output_format: str = "CSV",
@@ -130,6 +134,7 @@ class GoogleMaps:
         self._output_path = output_path
         self._verbose = verbose
         self._results_range = result_range
+        print_lock = print_lock or Lock()
         self._thread_lock = print_lock
         self.__output_format = output_format
         self._scroll_minutes = scroll_minutes
@@ -153,8 +158,36 @@ class GoogleMaps:
         Check if the output directory exists and create it if not.
         """
 
-        if not exists(self._output_path):
-            mkdir(self._output_path)
+        # exist_ok prevents a race when multiple worker threads create the
+        # output directory at the same time (it raised FileExistsError before).
+        makedirs(self._output_path, exist_ok=True)
+
+    @staticmethod
+    def detect_chrome_major_version() -> int:
+        """
+        Detect the installed Chrome/Chromium major version so undetected-chromedriver
+        downloads a matching driver instead of the latest one. Without this, uc defaults
+        to the newest driver and fails with "This version of ChromeDriver only supports
+        Chrome version N" when the installed browser is older.
+            :return: The Chrome major version, or 0 (uc's auto/latest) if it can't be found.
+        """
+
+        try:
+            chrome_path = uc.find_chrome_executable()
+            if not chrome_path:
+                return 0
+            if platform_system().lower() == "windows":
+                # chrome.exe does not print --version to stdout on Windows.
+                command = ["powershell", "-NoProfile", "-Command",
+                           f"(Get-Item '{chrome_path}').VersionInfo.ProductVersion"]
+            else:
+                command = [chrome_path, "--version"]
+            output = check_output(command, stderr=DEVNULL).decode("utf-8", "ignore")
+            match = re.search(r"(\d+)\.", output)
+            return int(match.group(1)) if match else 0
+        except Exception as e:
+            _ = e
+            return 0
 
     def create_chrome_driver(self) -> WebDriver:
         """
@@ -166,10 +199,9 @@ class GoogleMaps:
         options.add_argument(argument='--title=Developer - Abdul Moez')
         options.add_argument(argument='--disable-popup-blocking')
         options.add_extension(extension=self._finger_print_defender_ext)
-        if self._headless:
-            driver = uc.Chrome(options=options, headless=True, use_subprocess=False)
-        else:
-            driver = uc.Chrome(options=options, headless=False, use_subprocess=False)
+        chrome_version = self.detect_chrome_major_version()
+        driver = uc.Chrome(options=options, headless=self._headless, use_subprocess=False,
+                           version_main=chrome_version or None)
         self._wait = WebDriverWait(driver, self._wait_time, ignored_exceptions=(NoSuchElementException,
                                                                                 StaleElementReferenceException))
         return driver
@@ -188,7 +220,11 @@ class GoogleMaps:
         Perform a search query on Google Maps.
             :param query: The search query to perform.
         """
-        search_box = self._wait.until(EC.presence_of_element_located((By.ID, "searchboxinput")))
+        # Google Maps replaced id="searchboxinput" with a combobox <input name="q">
+        # that has a dynamic id. Accept both so old and new layouts work.
+        search_box = self._wait.until(EC.element_to_be_clickable(
+            (By.CSS_SELECTOR, "input#searchboxinput, input[name='q'], input[role='combobox']")))
+        search_box.click()
         search_box.send_keys(query)
         search_box.send_keys(Keys.RETURN)
 
@@ -202,11 +238,11 @@ class GoogleMaps:
 
         if result != "continue":
             get_link = result.get_attribute("href")
-
-            driver.execute_script(f'''window.open("{get_link}", "_blank");''')
+            # Pass the href as an argument so a URL containing quotes can't break the script.
+            driver.execute_script('window.open(arguments[0], "_blank");', get_link)
             driver.switch_to.window(driver.window_handles[-1])
         else:
-            get_link = driver.current_url
+            get_link = None
 
         try:
             self._wait.until(EC.url_contains("@"))
@@ -215,19 +251,29 @@ class GoogleMaps:
             _ = e
             lat_lng = [self._unavailable_text, self._unavailable_text]
 
+        # Single-place ('continue') flow: capture the canonical URL only after the
+        # redirect to the place page has settled.
+        if get_link is None:
+            get_link = driver.current_url
+
         return lat_lng[0], lat_lng[1], get_link
 
-    def get_cover_image(self) -> str:
+    def get_cover_image(self, driver: WebDriver) -> str:
         """
         Get the cover image source URL from a search result.
+            :param driver: The WebDriver instance.
             :return: The cover image source URL.
         """
         try:
-            cover_image = self._wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="QA0Szd"]/div/div/div['
-                                                                                     '1]/div[2]/div/div['
-                                                                                     '1]/div/div/div[1]/div['
-                                                                                     '1]/button/img')))
-            cover_image_src = cover_image.get_attribute("src")
+            # Wait for the place panel to settle: Maps often renders an empty <h1>
+            # first, so wait for non-empty title text. This also makes the panel
+            # ready for every extractor that follows.
+            self._wait.until(lambda drv: (drv.find_element(By.CSS_SELECTOR, "h1").text or "").strip())
+            images = driver.find_elements(By.CSS_SELECTOR, "button[aria-label^='Photo'] img")
+            if not images:
+                images = [img for img in driver.find_elements(By.CSS_SELECTOR, "img")
+                          if "googleusercontent" in (img.get_attribute("src") or "")]
+            cover_image_src = (images[0].get_attribute("src") if images else "") or self._unavailable_text
         except Exception as e:
             _ = e
             cover_image_src = self._unavailable_text
@@ -241,12 +287,9 @@ class GoogleMaps:
         """
 
         try:
-            title = driver.find_element(
-                By.CSS_SELECTOR, '#QA0Szd > div > div > div.w6VYqd > div.bJzME.tTVLSc > div > '
-                                 'div.e07Vkf.kA9KIf > div > div > div.TIHn2 > div > '
-                                 'div.lMbq3e > div:nth-child(1) > h1'
-            )
-            title_text = title.text
+            # Wait for non-empty title text (the panel can render an empty <h1> first).
+            title_text = self._wait.until(
+                lambda drv: (drv.find_element(By.CSS_SELECTOR, "h1").text or "").strip()) or self._unavailable_text
         except Exception as e:
             _ = e
             title_text = self._unavailable_text
@@ -260,13 +303,8 @@ class GoogleMaps:
         """
 
         try:
-            rating = driver.find_element(
-                By.CSS_SELECTOR, '#QA0Szd > div > div > div.w6VYqd > div.bJzME.tTVLSc > div '
-                                 '> div.e07Vkf.kA9KIf > div > div > div.TIHn2 > div > '
-                                 'div.lMbq3e > div.LBgpqf > div > div.fontBodyMedium.dmRWX > '
-                                 'div.F7nice > span:nth-child(1) > span:nth-child(1)'
-            )
-            rating_text = rating.text
+            rating = driver.find_element(By.CSS_SELECTOR, "div.F7nice span[aria-hidden='true']")
+            rating_text = rating.text or self._unavailable_text
         except Exception as e:
             _ = e
             rating_text = self._unavailable_text
@@ -280,12 +318,14 @@ class GoogleMaps:
         """
 
         try:
-            price_privacy = driver.find_element(By.XPATH,
-                                                '//*[@id="QA0Szd"]/div/div/div[1]/div[2]/div/div[1]/div/div/div['
-                                                '2]/div/div[1]/div[2]/div/div[1]/span/span/span/span[2]/span/span'
-                                                )
-
-            price_privacy_text = price_privacy.text
+            price_privacy_text = self._unavailable_text
+            for element in driver.find_elements(By.CSS_SELECTOR, "span[aria-label]"):
+                aria = element.get_attribute("aria-label") or ""
+                if aria.startswith("Price"):
+                    price_privacy_text = (element.text.strip()
+                                          or aria.replace("Price:", "").strip()
+                                          or self._unavailable_text)
+                    break
         except Exception as e:
             _ = e
             price_privacy_text = self._unavailable_text
@@ -299,13 +339,7 @@ class GoogleMaps:
         """
 
         try:
-            category = driver.find_element(By.CSS_SELECTOR,
-                                           '#QA0Szd > div > div > div.w6VYqd > div.bJzME.tTVLSc > div > '
-                                           'div.e07Vkf.kA9KIf > div > div > div.TIHn2 > div > div.lMbq3e '
-                                           '> '
-                                           'div.LBgpqf > div > div:nth-child(2) > span > span > button')
-            category_text = category.text
-
+            category_text = driver.find_element(By.CSS_SELECTOR, "button.DkEaL").text or self._unavailable_text
         except Exception as e:
             _ = e
             category_text = self._unavailable_text
@@ -319,8 +353,13 @@ class GoogleMaps:
         """
 
         try:
-            address = driver.find_element(By.CLASS_NAME, 'rogA2c')
-            address_text = address.text
+            address = driver.find_element(By.CSS_SELECTOR, "button[data-item-id='address']")
+            value = address.find_elements(By.CSS_SELECTOR, ".Io6YTe")
+            if value and value[0].text.strip():
+                address_text = value[0].text.strip()
+            else:
+                address_text = (address.get_attribute("aria-label") or "").replace("Address:", "").strip() \
+                               or self._unavailable_text
         except Exception as e:
             _ = e
             address_text = self._unavailable_text
@@ -334,14 +373,41 @@ class GoogleMaps:
         """
 
         try:
-            driver.find_element(
-                By.CSS_SELECTOR, 'div.OqCZI.fontBodyMedium.WVXvdc > div.OMl5r.hH0dDd.jBYmhd'
-            ).click()
+            # Expand the weekly view when the toggle is present (reliable in
+            # windowed mode; headless typically exposes only the current day).
+            toggles = driver.find_elements(
+                By.CSS_SELECTOR, "[aria-label='Show open hours for the week'], [data-item-id='oh']")
+            if toggles:
+                try:
+                    toggles[0].click()
+                except Exception:
+                    try:
+                        driver.execute_script("arguments[0].click();", toggles[0])
+                    except Exception:
+                        pass
+                sleep(uniform(0.4, 0.8))
 
-            working_hours = driver.find_element(By.CSS_SELECTOR, 'div.t39EBf.GUrTXd > div > table')
-            working_hours_text = working_hours.text.strip().split("\n")
-            working_hours_text = [x.strip() for x in working_hours_text if x]
-            working_hours_text = ",".join(working_hours_text)
+            day_order = {day: i for i, day in enumerate(
+                ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"])}
+            rows = {}
+            for element in driver.find_elements(By.CSS_SELECTOR, "[aria-label]"):
+                aria = (element.get_attribute("aria-label") or "").strip()
+                match = re.match(r"^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),", aria)
+                if match:
+                    clean = re.sub(r",?\s*(Copy open hours|Hide open hours|Suggest.*)$", "", aria).strip()
+                    rows.setdefault(match.group(1), clean)
+
+            if rows:
+                working_hours_text = ",".join(rows[day] for day in sorted(rows, key=lambda d: day_order[d]))
+            else:
+                # Fallback to the current-day hours block.
+                working_hours_text = self._unavailable_text
+                for selector in ("div.t39EBf", "div.OqCZI"):
+                    block = driver.find_elements(By.CSS_SELECTOR, selector)
+                    if block and block[0].text.strip():
+                        working_hours_text = re.sub(r"\s*Suggest new hours\s*$", "",
+                                                    block[0].text.replace("\n", " ").strip())
+                        break
         except Exception as e:
             _ = e
             working_hours_text = self._unavailable_text
@@ -355,10 +421,8 @@ class GoogleMaps:
         """
 
         try:
-            menu_link = driver.find_element(
-                By.CSS_SELECTOR,
-                'div.UCw5gc > div > div:nth-child(1) > a[data-tooltip="Open menu link"]')
-            menu_link_href = menu_link.get_attribute("href")
+            menu_link = driver.find_element(By.CSS_SELECTOR, "a[data-item-id='menu']")
+            menu_link_href = menu_link.get_attribute("href") or self._unavailable_text
 
         except Exception as e:
             _ = e
@@ -373,9 +437,8 @@ class GoogleMaps:
         """
 
         try:
-            website = driver.find_element(By.CSS_SELECTOR, 'div.UCw5gc > div > div:nth-child(1) > a['
-                                                           'data-tooltip="Open website"]')
-            website_href = website.get_attribute("href")
+            website = driver.find_element(By.CSS_SELECTOR, "a[data-item-id='authority']")
+            website_href = website.get_attribute("href") or self._unavailable_text
 
         except Exception as e:
             _ = e
@@ -390,19 +453,14 @@ class GoogleMaps:
         """
 
         try:
-            phone = driver.find_elements(By.CLASS_NAME, 'rogA2c')
-            try:
-                for ph in phone:
-                    ph_text = ph.text.replace("(", "").replace(")", "").replace(
-                        " ", "").replace("+", "").replace("-", "")
-                    if ph_text.isnumeric():
-                        phone = ph
-
-                phone_href = phone.text
-            except Exception as e:
-                _ = e
-                phone_href = self._unavailable_text
-
+            phone = driver.find_element(By.CSS_SELECTOR, "button[data-item-id^='phone']")
+            value = phone.find_elements(By.CSS_SELECTOR, ".Io6YTe")
+            if value and value[0].text.strip():
+                phone_href = value[0].text.strip()
+            else:
+                # data-item-id is "phone:tel:+49..." — fall back to that number.
+                data_item_id = phone.get_attribute("data-item-id") or ""
+                phone_href = data_item_id.split("tel:")[-1] if "tel:" in data_item_id else self._unavailable_text
         except Exception as e:
             _ = e
             phone_href = self._unavailable_text
@@ -416,12 +474,12 @@ class GoogleMaps:
         """
 
         try:
-            related_images = driver.find_elements(By.CLASS_NAME, "DaSXdd")
-            if related_images:
-                related_images_src = [image.get_attribute("src") for image in related_images]
-                related_images_data = ",".join(related_images_src)
-            else:
-                related_images_data = self._unavailable_text
+            related_images_src = []
+            for image in driver.find_elements(By.CSS_SELECTOR, "img"):
+                src = image.get_attribute("src") or ""
+                if ("googleusercontent" in src or "streetviewpixels" in src) and src not in related_images_src:
+                    related_images_src.append(src)
+            related_images_data = ",".join(related_images_src) if related_images_src else self._unavailable_text
 
         except Exception as e:
             _ = e
@@ -435,36 +493,23 @@ class GoogleMaps:
             :return: The description text or the unavailable text dict.
         """
 
+        about_dict = {"about_desc": self._unavailable_text}
         try:
-            driver.find_element(By.CSS_SELECTOR, '#QA0Szd > div > div > div.w6VYqd > div.bJzME.tTVLSc > div > '
-                                                 'div.e07Vkf.kA9KIf > div > div > div:nth-child(3) > div > div > '
-                                                 'button:nth-child(3)').click()
+            # "About" is now a tab in the place panel. Click it, then read the
+            # "About <name>" region (amenities / description).
+            for tab in driver.find_elements(By.CSS_SELECTOR, "button[role='tab']"):
+                if (tab.get_attribute("aria-label") or "").startswith("About"):
+                    try:
+                        tab.click()
+                    except Exception:
+                        driver.execute_script("arguments[0].click();", tab)
+                    break
+            sleep(uniform(0.4, 0.8))
 
-            self._wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '#QA0Szd > div > div > '
-                                                                              'div.w6VYqd > div.bJzME.tTVLSc '
-                                                                              '> div > div.e07Vkf.kA9KIf > '
-                                                                              'div > div > '
-                                                                              'div.m6QErb.DxyBCb.kA9KIf.dS8AEf')))
-
-            # about_data = driver.find_elements(By.CSS_SELECTOR, 'div.iP2t7d.fontBodyMedium')
-            about_dict = {}
-            try:
-                about_text = driver.find_element(By.CSS_SELECTOR,
-                                                 '#QA0Szd > div > div > div.w6VYqd > div.bJzME.tTVLSc > '
-                                                 'div > div.e07Vkf.kA9KIf > div > div > '
-                                                 'div.m6QErb.DxyBCb.kA9KIf.dS8AEf > div.PbZDve > p > '
-                                                 'span > span')
-                about_dict["about_desc"] = about_text.text
-            except NoSuchElementException:
-                about_dict["about_desc"] = self._unavailable_text
-
-            # for data_dic in about_data:
-            #     title = data_dic.find_element(By.CSS_SELECTOR, "h2").text
-            #     desc = data_dic.text.replace(title.strip(), "").split("\n")
-            #     desc = [x.strip() for x in desc if x]
-            #     desc_data = ",".join(desc)
-            #     about_dict[title.strip()] = desc_data
-
+            regions = [region for region in driver.find_elements(By.CSS_SELECTOR, "div[aria-label^='About']")
+                       if region.text.strip()]
+            if regions:
+                about_dict["about_desc"] = regions[0].text.strip().replace("\n", ",")
         except Exception as e:
             _ = e
             about_dict = {"about_desc": self._unavailable_text}
@@ -494,25 +539,41 @@ class GoogleMaps:
             results = ["continue"]
             return results
 
-        scroll_end = 'div.PbZDve  > p.fontBodyMedium  > span > span[class="HlvSq"]'
         start_time = time()
         scroll_wait = 1
+        last_count = 0
+        stagnant_rounds = 0
         while True:
             results = driver.find_elements(By.CLASS_NAME, 'hfpxzc')
-            if self._results_range:
-                if len(results) >= self._results_range:
-                    temp_results = results[:self._results_range + 1]
-                    results = temp_results
+            if self._results_range and len(results) >= self._results_range:
+                results = results[:self._results_range]
+                break
+
+            # The feed can transiently return no cards while re-rendering.
+            if not results:
+                stagnant_rounds += 1
+                if stagnant_rounds >= 5:
                     break
+                sleep(uniform(0.2, 0.6))
+                continue
 
             driver.execute_script('arguments[0].scrollIntoView(true);', results[-1])
             driver.implicitly_wait(scroll_wait)
-            try:
-                text_span = driver.find_element(By.CSS_SELECTOR, scroll_end)
-                if "you've reached the end" in text_span.text.lower():
+
+            # Google's end-of-list marker, when present.
+            end_marker = driver.find_elements(By.CSS_SELECTOR, "span.HlvSq")
+            if end_marker and "reached the end" in (end_marker[-1].text or "").lower():
+                break
+
+            # Layout-independent stop: the feed stopped producing new results.
+            if len(results) == last_count:
+                stagnant_rounds += 1
+                if stagnant_rounds >= 5:
                     break
-            except NoSuchElementException:
-                ...
+            else:
+                stagnant_rounds = 0
+                last_count = len(results)
+
             sleep(uniform(0.2, 0.6))
             elapsed_time = time() - start_time
             if elapsed_time > (int(self._scroll_minutes) * 60):  # 60 seconds = 1 minutes
@@ -549,7 +610,7 @@ class GoogleMaps:
 
         # get cover image
         self.__pprint_override(query=query, status="Getting cover image", results_indices=results_indices)
-        cover_image = self.get_cover_image()
+        cover_image = self.get_cover_image(driver)
 
         # get title
         self.__pprint_override(query=query, status="Getting title", results_indices=results_indices)
@@ -668,15 +729,33 @@ class GoogleMaps:
             for result in results:
                 if self._stop_event.is_set():
                     break
-                # Scrape and store data
-                self._scrape_result_and_store(driver=driver, result=result, query=query,
-                                              results_indices=result_indices)
-                result_indices[1] += 1
+                try:
+                    # Scrape and store data
+                    self._scrape_result_and_store(driver=driver, result=result, query=query,
+                                                  results_indices=result_indices)
+                except Exception as e:
+                    # One bad result (stale element, timeout, IO error) must not abort
+                    # the whole query — log it, recover the window state, and continue.
+                    self.__pprint_override(query=query, status=f"Skipping result ({type(e).__name__})",
+                                           results_indices=result_indices)
+                    try:
+                        for handle in list(driver.window_handles):
+                            if handle != self._main_handler:
+                                driver.switch_to.window(handle)
+                                driver.close()
+                        driver.switch_to.window(self._main_handler)
+                    except Exception:
+                        pass
+                finally:
+                    result_indices[1] += 1
 
             self.__pprint_override(query=query, status="Driver Closed")
             driver.close()
         except NoSuchWindowException:
             self.__pprint_override(query=query, status="Browser Closed")
+        except Exception as e:
+            # Distinguish a genuine mid-run failure from a user-closed browser.
+            self.__pprint_override(query=query, status=f"Aborted ({type(e).__name__}: {e})")
 
 if __name__ == '__main__':
     App = GoogleMaps()

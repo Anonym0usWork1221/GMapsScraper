@@ -1,3 +1,26 @@
+<!-- ============================= SPONSOR ============================= -->
+<div align="center">
+
+<a href="https://www.coreclaw.com/?utm_source=github&utm_medium=referral&utm_campaign=Anony&utm_term=&utm_id=Anony">
+  <img src="README_ASSETS/sponsor.jpg" alt="CoreClaw — Turn Google Maps Data Into Real Business Leads" width="100%" />
+</a>
+
+<h2>🚀 Sponsored by <a href="https://www.coreclaw.com/?utm_source=github&utm_medium=referral&utm_campaign=Anony&utm_term=&utm_id=Anony">CoreClaw</a></h2>
+
+<p><strong>Turn Google Maps Data Into Real Business Leads</strong><br/>
+Find websites, emails, and business contacts from Google Maps — in minutes, not hours.</p>
+
+<a href="https://www.coreclaw.com/?utm_source=github&utm_medium=referral&utm_campaign=Anony&utm_term=&utm_id=Anony">
+  <img src="https://img.shields.io/badge/Get%201%2C000%20Free%20Leads%20%E2%86%92-2563EB?style=for-the-badge&labelColor=0B1F4D" alt="Get 1,000 free leads" />
+</a>
+
+<br/>
+<sub>Sponsored placement · CoreClaw is an independent product</sub>
+
+</div>
+
+<hr/>
+
 GMapsScraper
 ====
 -----------
@@ -8,7 +31,7 @@ If you find any bug or not working function you can contact me.
  *  Launch Date   : 2023/08/16
  *  Updated Date   : 2024/02/05
  *  Author : **__Abdul Moez__**
- *  Version : 0.2b
+ *  Version : 0.3b
  *  Repository  : https://github.com/Anonym0usWork1221/GMapsScraper
  *  [Documentation](https://github.com/Anonym0usWork1221/GMapsScraper#gmapsscraper-documentation)
 
@@ -18,6 +41,37 @@ MIT License
 Copyright (c) 2025 Abdul Moez
 
 ----------
+# Version 0.3b
+
+````
+-----------------------------------------CHANGE LOGS--------------------------------------------------
+
+1. Added support for newer Python versions (3.12+). Fixed the `No module named 'distutils'`
+ error by depending on `setuptools`, which provides the distutils compatibility shim
+ (distutils was removed from the standard library in Python 3.12 / PEP 632).
+2. Wired the `-of`/`--output-format` flag through so EXCEL and JSON outputs work
+ (previously it was parsed but ignored, so output was always CSV).
+3. Fixed worker query distribution: queries are no longer dropped when the query count
+ isn't evenly divisible by the number of threads.
+4. Updated all scrapers to the current Google Maps layout. Google reworked the Maps DOM,
+ which broke the search box and every detail-field selector (search now used `name="q"`
+ instead of `id="searchboxinput"`, and the old `#QA0Szd` container was removed). Re-mapped
+ search, title, rating, category, address, phone, website, menu, working hours, cover image,
+ related images, and about/description to the new DOM (using stable `data-item-id`/`aria`
+ hooks where possible).
+5. Auto-detect the installed Chrome version and download a matching driver, fixing
+ `This version of ChromeDriver only supports Chrome version N` mismatches.
+6. Fixed `FileExistsError` race when multiple threads created the output folder at once.
+7. Result limit (`-l`) now returns exactly N results (was returning N+1), and scrolling
+ stops reliably when no new results load even if the end-of-list marker changes.
+8. Added the missing `lxml` dependency and made HTML parsing fall back to the standard
+ library parser, fixing `Couldn't find a tree builder with the features you requested: lxml`
+ in the website (`-se`) scraper.
+9. Hardened scraping: a single bad result no longer aborts the whole query (it is skipped
+ and logged), the Maps UI is pinned to English (`hl=en`) so the layout-based selectors stay
+ stable across regions, and the title now waits for non-empty text before being read.
+````
+
 # Version 0.2b
 
 ````
@@ -40,7 +94,7 @@ Copyright (c) 2025 Abdul Moez
 -----------
 
 ## Requirements
-* Python version must be greater than 3.7 and less than 3.11
+* Python 3.7 or newer (tested up to 3.12; `setuptools` is installed automatically to keep `undetected-chromedriver` working on 3.12+)
 * Google Chrome Stable
 * Requirements file (as mentioned in installation section in documentation)
 
@@ -168,7 +222,7 @@ Gas stations
 ````
 
 ## 5. Output <a name="output"></a>
-The scraped data will be saved as CSV files in the specified output folder. **_All query's results will be stored in a single CSV file_** named after the query.
+The scraped data is saved in the specified output folder. **_All results from every query are appended to a single file_** named `google_maps_data.<ext>` (for example `google_maps_data.csv`), where the extension matches the `-of` output format you choose (CSV/EXCEL/JSON).
 
 ## 6. Advanced Usage <a name="advanced-usage"></a>
 For advanced users, the script provides options to customize various parameters such as the `number of threads`, `result limit`, `browser behavior`, and more. These options can be adjusted to optimize the scraping process based on your requirements.
@@ -178,7 +232,7 @@ If you encounter any issues while using the `GMapsScraper` tool, consider the fo
 
 * Ensure that you have the required dependencies installed.
 * Double-check the path to the query file and ensure it is correct.
-*  If you encounter driver-related issues, provide the correct path to the Chrome driver using the `-d` option.
+*  If you encounter driver-related issues, make sure Google Chrome (stable) is installed — the matching driver is downloaded automatically.
 
 ## 8. Conclusion <a name="conclusion"></a>
 The `GMapsScraper` tool offers a convenient way to extract data from Google Maps search results using efficient algorithms and multiple threads. By following the instructions in this documentation, you can harness the power of this tool to gather valuable location-based information for your projects.

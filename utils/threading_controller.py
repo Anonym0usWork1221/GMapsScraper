@@ -66,11 +66,11 @@ class FastSearchAlgo:
                               scroll_minutes=self._scroll_minutes
                               )
 
-        range_calculation = query_list_range / self._workers
-        thread_start = thread_id * int(range_calculation)
-        thread_end = thread_start + int(range_calculation)
-
-        for thread_index in range(thread_start, thread_end):
+        # Round-robin partitioning across workers so no queries are dropped when
+        # the query count isn't evenly divisible by the worker count (the previous
+        # integer-division split silently skipped the remainder, e.g. 5 queries /
+        # 2 workers only processed 4).
+        for thread_index in range(thread_id, query_list_range, self._workers):
             try:
                 maps_obj.start_scrapper(self._query_list[thread_index])
             except Exception as e:

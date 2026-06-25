@@ -100,6 +100,7 @@ class GMapsScraper:
             result_range=limit_results,
             scroll_minutes=self._args.scroll_minutes,
             verbose=False if self._args.disable_verbose else True,
+            output_format=self._args.output_format,
         )
 
         algo_obj.fast_search_algorithm(queries_list)

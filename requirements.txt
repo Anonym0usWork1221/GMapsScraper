@@ -7,6 +7,7 @@ et_xmlfile==2.0.0
 exceptiongroup==1.2.1
 h11==0.14.0
 idna==3.7
+lxml>=5.0.0
 openpyxl==3.1.5
 outcome==1.3.0.post0
 psutil==6.0.0
@@ -14,6 +15,9 @@ pycparser==2.22
 PySocks==1.7.1
 requests==2.32.3
 selenium==4.22.0
+# Provides the distutils compatibility shim that undetected-chromedriver needs on
+# Python 3.12+, where distutils was removed from the standard library (PEP 632).
+setuptools>=68.0.0
 sniffio==1.3.1
 sortedcontainers==2.4.0
 soupsieve==2.5
