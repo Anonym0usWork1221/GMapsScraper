@@ -45,6 +45,10 @@ class GMapsScraper:
                             help='Maximum minutes to wait for end of results the waiting time in minutes (default: 1)',
                             type=int,
                             default=1)
+        parser.add_argument('--gl', '--geolocation',
+                            help='Geolocation country code to bias the search results (e.g. "in" for India, "br" for Brazil)',
+                            type=str,
+                            default=None)
 
         # Custom commands for additional help
         parser.add_argument('--help-query-file',
@@ -101,6 +105,7 @@ class GMapsScraper:
             scroll_minutes=self._args.scroll_minutes,
             verbose=False if self._args.disable_verbose else True,
             output_format=self._args.output_format,
+            gl=self._args.gl
         )
 
         algo_obj.fast_search_algorithm(queries_list)
