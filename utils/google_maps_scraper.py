@@ -198,6 +198,9 @@ class GoogleMaps:
         options = uc.ChromeOptions()
         options.add_argument(argument='--title=Developer - Abdul Moez')
         options.add_argument(argument='--disable-popup-blocking')
+        options.add_argument(argument='--no-sandbox')
+        options.add_argument(argument='--disable-dev-shm-usage')
+        options.add_argument(argument='--disable-gpu')
         options.add_extension(extension=self._finger_print_defender_ext)
         chrome_version = self.detect_chrome_major_version()
         driver = uc.Chrome(options=options, headless=self._headless, use_subprocess=False,
