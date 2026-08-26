@@ -161,3 +161,11 @@ cython_debug/
 
 # Claude Code project guidance (local only)
 CLAUDE.md
+
+# Local environment and outputs
+venv/
+logs/
+CSV_FILES/
+output/
+*.log
+data/*.csv
