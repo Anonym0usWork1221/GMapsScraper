@@ -11,7 +11,8 @@ class FastSearchAlgo:
                  suggested_ext: list = None, output_path: str = "./CSV_FILES", result_range: int = None,
                  workers: int = 1, verbose: bool = True,
                  output_format: str = "CSV",
-                 scroll_minutes: int = 1
+                 scroll_minutes: int = 1,
+                 gl: str = None
                  ) -> None:
         if suggested_ext is None:
             suggested_ext = ["contact-us", "contact"]
@@ -25,6 +26,7 @@ class FastSearchAlgo:
         self._scroll_minutes = scroll_minutes
         self._verbose = verbose
         self._output_format = output_format
+        self._gl = gl
 
         self._workers = workers
         self._query_list = list()
@@ -63,7 +65,8 @@ class FastSearchAlgo:
                               print_lock=self._print_lock,
                               result_range=self._result_range, verbose=self._verbose,
                               stop_event=self._thread_stop_event,
-                              scroll_minutes=self._scroll_minutes
+                              scroll_minutes=self._scroll_minutes,
+                              gl=self._gl
                               )
 
         # Round-robin partitioning across workers so no queries are dropped when

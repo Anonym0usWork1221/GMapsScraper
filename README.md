@@ -225,6 +225,7 @@ The `GMapsScraper` script supports the following command-line arguments:
 * `-of` or `--output-format`: Output format to store scraped data. Available formats [CSV, EXCEL, JSON] default: `CSV`.
 * `-sm` or `--scroll-minutes`: Maximum minutes to wait for end of results the waiting time in minutes.
   (Will terminate the scrolling event if scrolling checker is not working) Default: `1`.
+* `--gl` or `--geolocation`: Geolocation country code to bias the search results (e.g. `in` for India, `br` for Brazil). Default: None.
 
 ### Help for Specific Options <a name="help-for-specific-options"></a>
 You can use the following command-line options to get help for specific topics:

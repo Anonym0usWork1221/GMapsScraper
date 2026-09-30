@@ -106,7 +106,8 @@ class GoogleMaps:
                  output_path: str = "./OUTPUT_FILES", verbose: bool = True,
                  print_lock: Lock = None, result_range: int = None,
                  stop_event: Event = Event(),
-                 scroll_minutes: int = 1
+                 scroll_minutes: int = 1,
+                 gl: str = None
                  ) -> None:
         """
         Initialize the GoogleMaps scraper instance.
@@ -138,6 +139,10 @@ class GoogleMaps:
         self._thread_lock = print_lock
         self.__output_format = output_format
         self._scroll_minutes = scroll_minutes
+        self._maps_url = "https://www.google.com/maps?hl=en"
+        if gl:
+            self._maps_url += f"&gl={gl}"
+
 
         self._web_pattern_scraper = PatternScrapper()
         if self.__output_format.lower() == "json":
